@@ -1,0 +1,36 @@
+name: lambda update
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ closed ]
+
+jobs:
+  lambda:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Zip artifact
+        run: |
+          zip -r send_email.zip send-email.py
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{secrets.ACCESS_KEY}}
+          aws-secret-access-key: ${{secrets.SECRET_KEY}}
+          aws-region: us-east-1
+
+      - name: Push artifact to s3
+        run: |
+          aws s3 cp send_email.zip s3://codedeploy.example.me/send_email.zip
+
+      - name: update lambda function
+        run: |
+          aws lambda update-function-code \
+              --function-name send-email \
+              --s3-bucket codedeploy.example.me \
+              --s3-key send_email.zip
